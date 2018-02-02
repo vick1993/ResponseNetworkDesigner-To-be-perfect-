@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>应答网络设计器</title>
+		<link rel="stylesheet" href="css/index.css" />
+	</head>
+	<body>
+		<div class="con_header">
+			<div class="header">
+				<span>
+					<p>ResponseNetworkDesigner</p>
+					<ul>
+						<li>
+							<img class="shrink" src="img/shrinkAndDecom .png" title="快捷键：CTRL+空格" />
+							<label>分解/收缩</label>
+						</li>
+						<li>
+							<img class="addLink" src="img/link.png" title="添加连接线" />
+							<label>连线</label>
+						</li>
+						<li>
+							<img class="addNode" src="img/node.png" title="快捷键：CTRL+N" />
+							<label>添加节点</label>
+						</li>
+						<li>
+							<img class="delete" src="img/delete.png" title="快捷键：DELETE" />
+							<label>删除</label>
+						</li>
+					</ul>
+				</span>
+				<span>
+					<input class="search_tex" type="search" />
+					<button class="search">搜索</button>
+					<img src="img/search.png" />
+				</span>
+			</div>
+		</div>
+		<div class="container">
+			<div class="left">
+				<svg id="sketchpad" preserveAspectRatio="xMinYMin meet" viewBox="0,0,3000,3000"></svg>
+			</div>
+			<div class="right">
+				<p>详细信息</p>
+				<ul class="ul">
+					<!--<li></li>-->
+				</ul>
+				<button>提交</button>
+				<span class="bottom">
+					<p>底部栏</p>
+					<div>
+						<ul></ul>
+					</div>
+					<input placeholder="输入相关信息" type="text" />
+				</span>
+			</div>
+		</div>
+		<script type="text/javascript" src="js/jquery-3.1.0.min.js"></script>
+		<script type="text/javascript" src="js/layer.js"></script> 
+		<script type="text/javascript" src="js/layui.js"></script>
+		<script type="text/javascript" src="js/d3.v4.min.js"></script>
+		<script type="text/javascript">
+			$(function() {  //svg自适应
+		        var svgRootDom = $("#sketchpad")[0];  
+		        adjustToFreezeHeight(svgRootDom);  
+		    });  
+	        $.ctrl = function(key, callback, args) {//键盘按下回调
+			    var isCtrl = false;
+			    $(document).keydown(function(e) {
+			        if(!args) args=[]; // IE barks when args is null
+			        
+			        if(e.ctrlKey) isCtrl = true;
+			        if(e.keyCode == key.charCodeAt(0) && isCtrl) {
+			            callback.apply(this, args);
+			            return false;
+			        }
+			    }).keyup(function(e) {
+			        if(e.ctrlKey) isCtrl = false;
+			    });        
+			};
+			
+			$.ctrl('F', function() {
+			   layer.open({
+				  	type: 1,
+				  	title: false,
+				  	skin: 'search-style', //加上边框
+				  	area: ['550px', '90px'], //宽高
+				 	btn: ['确定','取消'],
+				 	closeBtn: 0,
+				  	content: '<div class="search_"><b>输入搜索内容：</b><input type="search" /></div>',
+				  	yes: function(index,layero){
+				  		
+				  		layer.close(index);
+				  	}
+				});
+			});
+			
+			$.ctrl('A', function() {
+				layer.open({
+				  	type: 1,
+				  	title: ['输入节点信息','background:f4f5f7;font-size:1.2em;color:#5f71ad;height:48px;line-height:48px;'],
+				  	skin: 'add-style', //加上边框
+				  	area: ['550px', '190px'], //宽高
+				 	btn: ['确定','取消'],
+				 	closeBtn: 0,
+				  	content: '<div class="add"><span><p>姓名：</p><input type="text" /></span></div>',
+				  	yes: function(index,layero){
+				  		removeSip(exten);
+						vm.getExtensionData(k,pagenum);
+						this_.extensionData = true;
+						this_.robotData = false;
+						$('#checkAll')[0].checked = false;
+				  		layer.close(index);
+				  	}
+				});
+			});
+			
+			$.ctrl('D', function() {
+			   deleteClick();
+			});
+			
+			$.ctrl('X', function() {
+			   alert("收缩、分解");
+			});
+			setTimeout(function(){
+				//选择svg，选择svg声明一个画布 
+				var svg = d3.select("svg"),
+			    width = +svg.attr("width"),
+			    height = +svg.attr("height");
+//			    transform = d3.zoomIdentity;
+//	          var points = d3.range(2000).map(phyllotaxis(50));
+				//设置颜色比例尺，使用非定量值（如类名）作为输出的序数比例尺，非常适合比较苹果和桔子，比如0对应蓝色  
+				var color = d3.scaleOrdinal(d3.schemeCategory10);
+				
+				var simulation = d3.forceSimulation()//创建一个力模拟
+				    .force("link", d3.forceLink().id(function(d) { return d.name; })) //创建连接力、link.id指的是link与node关联的关键字，这里是通过node中的id属性关联
+				    .force("charge", d3.forceManyBody())//force.charge - 取得或者设置电荷强度、创建多体力
+				    .force("center", d3.forceCenter(width / 2, height / 2));//创建一个力中心
+				
+				var graph = {
+  "nodes": [
+    {
+      "group": 2, 
+      "name": "\u5468\u6770\u4f26"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u5468\u661f\u9a70"
+    }, 
+    {
+      "group": 6, 
+      "name": "\u5468\u6da6\u53d1"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5468\u6770"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u5218\u5fb7\u534e"
+    }, 
+    {
+      "group": 6, 
+      "name": "\u5218\u9752\u4e91"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u8c22\u9706\u950b"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u738b\u83f2"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5f20\u67cf\u829d"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u8303\u51b0\u51b0"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u674e\u6668"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u6768\u5e42"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u5510\u5ae3"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u9093\u7d2b\u68cb"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u674e\u51b0\u51b0"
+    }, 
+    {
+      "group": 13, 
+      "name": "\u5434\u4ea6\u51e1"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u5218\u8bd7\u8bd7"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u674e\u5c0f\u7490"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u67f3\u5ca9"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u9e7f\u6657"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u82cd\u4e95\u7a7a"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u5b8b\u831c"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u8d75\u672c\u5c71"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u59da\u7b1b"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u9ad8\u5706\u5706"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u6797\u5fd7\u9896"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u8c22\u5a1c"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u6768\u7d2b"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u6c6a\u5cf0"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u7ae0\u5b50\u6021"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5434\u9547\u5b87"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5b59\u4fea"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5434\u5947\u9686"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u66f9\u683c"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u6797\u5fc3\u5982"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u6797\u5999\u53ef"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u623f\u7956\u540d"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u621a\u8587"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u4f5f\u4e3d\u5a05"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u59da\u8d1d\u5a1c"
+    }, 
+    {
+      "group": 0, 
+      "name": "\u9ec4\u6e24"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u90ed\u78a7\u5a77"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5b8b\u667a\u5b5d"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u5168\u667a\u8d24"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u4f55\u7085"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u674e\u8fde\u6770"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u6c64\u552f"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u9a6c\u4f0a\u740d"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u9646\u6bc5"
+    }, 
+    {
+      "group": 2, 
+      "name": "\u90ed\u656c\u660e"
+    }, 
+    {
+      "group": 1, 
+      "name": "\u9648\u5955\u8fc5"
+    }
+  ], 
+  "links": [
+    {
+      "source": "\u5468\u6770\u4f26", 
+      "target": "\u5468\u661f\u9a70", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6770\u4f26", 
+      "target": "\u5468\u6da6\u53d1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u661f\u9a70", 
+      "target": "\u5468\u6770", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u661f\u9a70", 
+      "target": "\u5218\u5fb7\u534e", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6da6\u53d1", 
+      "target": "\u8d75\u672c\u5c71", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6da6\u53d1", 
+      "target": "\u9ad8\u5706\u5706", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6da6\u53d1", 
+      "target": "\u6797\u5999\u53ef", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6da6\u53d1", 
+      "target": "\u623f\u7956\u540d", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6da6\u53d1", 
+      "target": "\u621a\u8587", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6da6\u53d1", 
+      "target": "\u4f5f\u4e3d\u5a05", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5468\u6770", 
+      "target": "\u5218\u5fb7\u534e", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u5fb7\u534e", 
+      "target": "\u5218\u9752\u4e91", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u5fb7\u534e", 
+      "target": "\u5f20\u67cf\u829d", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u9752\u4e91", 
+      "target": "\u8c22\u9706\u950b", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u9752\u4e91", 
+      "target": "\u6797\u5fd7\u9896", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u9752\u4e91", 
+      "target": "\u8c22\u5a1c", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u9752\u4e91", 
+      "target": "\u6768\u7d2b", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u9752\u4e91", 
+      "target": "\u6c6a\u5cf0", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u9752\u4e91", 
+      "target": "\u9646\u6bc5", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u8c22\u9706\u950b", 
+      "target": "\u738b\u83f2", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u8c22\u9706\u950b", 
+      "target": "\u8303\u51b0\u51b0", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u738b\u83f2", 
+      "target": "\u674e\u6668", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u738b\u83f2", 
+      "target": "\u90ed\u78a7\u5a77", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5f20\u67cf\u829d", 
+      "target": "\u5218\u9752\u4e91", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u8303\u51b0\u51b0", 
+      "target": "\u82cd\u4e95\u7a7a", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u8303\u51b0\u51b0", 
+      "target": "\u5b8b\u667a\u5b5d", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u674e\u6668", 
+      "target": "\u6768\u5e42", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u674e\u6668", 
+      "target": "\u5510\u5ae3", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6768\u5e42", 
+      "target": "\u5510\u5ae3", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6768\u5e42", 
+      "target": "\u9093\u7d2b\u68cb", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5510\u5ae3", 
+      "target": "\u674e\u5c0f\u7490", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5510\u5ae3", 
+      "target": "\u67f3\u5ca9", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9093\u7d2b\u68cb", 
+      "target": "\u5510\u5ae3", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9093\u7d2b\u68cb", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u8d75\u672c\u5c71", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u9ad8\u5706\u5706", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u6797\u5999\u53ef", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u623f\u7956\u540d", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u621a\u8587", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u4f5f\u4e3d\u5a05", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u8c22\u9706\u950b", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u6797\u5fd7\u9896", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u8c22\u5a1c", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u6768\u7d2b", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u6c6a\u5cf0", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u9646\u6bc5", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u4ea6\u51e1", 
+      "target": "\u9ec4\u6e24", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u8bd7\u8bd7", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5218\u8bd7\u8bd7", 
+      "target": "\u66f9\u683c", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u674e\u5c0f\u7490", 
+      "target": "\u9e7f\u6657", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u67f3\u5ca9", 
+      "target": "\u9e7f\u6657", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9e7f\u6657", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9e7f\u6657", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u82cd\u4e95\u7a7a", 
+      "target": "\u5b8b\u831c", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u59da\u7b1b", 
+      "target": "\u6c64\u552f", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6797\u5fd7\u9896", 
+      "target": "\u9a6c\u4f0a\u740d", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u8c22\u5a1c", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u8c22\u5a1c", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6768\u7d2b", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6768\u7d2b", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6c6a\u5cf0", 
+      "target": "\u7ae0\u5b50\u6021", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u7ae0\u5b50\u6021", 
+      "target": "\u5434\u9547\u5b87", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u9547\u5b87", 
+      "target": "\u6c64\u552f", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5b59\u4fea", 
+      "target": "\u5434\u5947\u9686", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5434\u5947\u9686", 
+      "target": "\u9ec4\u6e24", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u66f9\u683c", 
+      "target": "\u6797\u5fc3\u5982", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6797\u5fc3\u5982", 
+      "target": "\u5b59\u4fea", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6797\u5fc3\u5982", 
+      "target": "\u9648\u5955\u8fc5", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u90ed\u78a7\u5a77", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5b8b\u667a\u5b5d", 
+      "target": "\u5168\u667a\u8d24", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u5168\u667a\u8d24", 
+      "target": "\u4f55\u7085", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u4f55\u7085", 
+      "target": "\u674e\u8fde\u6770", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u674e\u8fde\u6770", 
+      "target": "\u6c64\u552f", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6c64\u552f", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u6c64\u552f", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9a6c\u4f0a\u740d", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9a6c\u4f0a\u740d", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9646\u6bc5", 
+      "target": "\u90ed\u656c\u660e", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u90ed\u656c\u660e", 
+      "target": "\u5434\u4ea6\u51e1", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u90ed\u656c\u660e", 
+      "target": "\u5218\u8bd7\u8bd7", 
+      "weight": 1
+    }, 
+    {
+      "source": "\u9648\u5955\u8fc5", 
+      "target": "\u5b59\u4fea", 
+      "weight": 1
+    }
+  ]
+};   
+//				$.ajax({
+//					type:"get",
+//					url:"/10000view",
+//					async:false,
+//					success: function(data){
+//						console.log(data);
+//						graph = data;
+//					}
+//				});   
+			    svg.append("svg:defs").append("svg:marker")
+				    .attr("id", "arrow")
+				    .attr("viewBox", "0 0 12 12")
+				    .attr("refX", 18)
+				    .attr("refY", 6)
+				    .attr("markerWidth", 12)
+				    .attr("markerHeight", 12)
+				    .attr("orient", "auto")
+				  .append("svg:path")
+				    .attr("d","M2,2 L10,6 L2,10 L6,6 L2,2")
+					.attr("fill","#000");
+
+						console.log(graph.links);
+			//link中source是原始点node，target连接属性的node,link的一共有三个属性source，target，index  	
+			    var link = svg.append("g")
+			  				.attr("class", "links")
+						    .selectAll("line")
+						    .data(graph.links)
+						    .enter().append("line") //追加线条  
+						    .attr("marker-end","url(#arrow)")
+					        .attr("stroke-width", function(d) { return Math.sqrt(d.weight * 2); })//线条的粗细
+					        .on("click",linkClick)//点击连线高亮
+					        .on("mouseover",function(d){//鼠标悬停连线，高亮相关节点及连线
+						        d3.select(this)
+						          .style("stroke","red");
+						        var c1_x = d.source.x;
+						        var d1_x = d.target.x;
+						        var circle = svg.selectAll("circle")._groups[0];
+						        for(var i=0;i<circle.length;i++){
+						        	if(circle[i].getAttribute("cx") == c1_x || circle[i].getAttribute("cx") == d1_x){
+							        	d3.select(circle[i])
+							              .style("fill","red");
+						        	}
+						        }
+				    		})
+					        .on("mouseout",function(d){//鼠标移除，节点不高亮，如果之前有点击效果的连线继续高亮，反之
+						        var circle = svg.selectAll("circle")._groups[0];
+						        var c1_x = d.source.x;
+						        var d1_x = d.target.x;
+					      	    for(var j=0;j<lines.length;j++){
+					      	    	if(lines[j] == this){
+					      	    		d3.selectAll('circle')
+							              .style("fill","#e3e3e3");
+							      	    	for(var i=0;i<circle.length;i++){
+									        	if((circle[i].getAttribute("id") == 1 && circle[i].getAttribute("cx") == c1_x) || (circle[i].getAttribute("id") == 1 && circle[i].getAttribute("cx") == d1_x)){
+									        		console.log(i);
+										         	d3.select(circle[i])
+										              .style("fill","red");
+									        	};
+									        };
+					      	    			return false;
+					      	    	};
+					      	    };  
+							if(c != 1){
+							    if(thisLink == this){
+							        d3.select(this)
+					                  .style("stroke","red");     	
+							    }else{
+							    	d3.select(this)
+					                  .style("stroke","#e3e3e3");
+							    }
+								
+							}
+					        for(var i=0;i<circle.length;i++){
+					        	if(circle[i].getAttribute("cx") == c1_x || circle[i].getAttribute("cx") == d1_x){
+						        	d3.select(circle[i])
+						              .style("fill","#e3e3e3");
+					        	};
+					        }
+					        c = 0;
+						})
+			    var node = svg.append("g")
+			      			.attr("class", "nodes")
+						    .selectAll("circle")
+						    .data(graph.nodes)
+						    .enter().append("circle")//使用圆形追加填充到svg中，半径为r  
+							        .attr("r",function(d){return 10+d.group;})
+							        .attr("fill","#e3e3e3")
+							        .on("click",clickCircle)//点击节点，高亮相关的连线及该节点
+						      		.call(d3.drag()//拖拽事件
+								            .on("start", dragstarted)
+								            .on("drag", dragged));
+//								            .on("end", dragended));
+			    var text = svg.append("g")
+						      .attr("class","texts")
+						      .selectAll("text")
+						      .data(graph.nodes)
+						      .enter().append("text")//追加文本
+						      .attr("font-size", 12)
+						      .attr("color", '#000') 
+//						      .on("click",textClick)
+						      .text(function(d) { return d.name; });
+				//箭头
+				var marker = svg.append("marker")
+							    //.attr("id", function(d) { return d; })
+							    .attr("id", "resolved")
+							    //.attr("markerUnits","strokeWidth")//设置为strokeWidth箭头会随着线的粗细发生变化
+							    .attr("markerUnits","userSpaceOnUse")
+							    .attr("viewBox", "0 -5 10 10")//坐标系的区域
+							    .attr("refX",32)//箭头坐标
+							    .attr("refY", -1)
+							    .attr("markerWidth", 12)//标识的大小
+							    .attr("markerHeight", 12)
+							    .attr("orient", "auto")//绘制方向，可设定为：auto（自动确认方向）和 角度值
+							    .attr("stroke-width",2)//箭头宽度
+							    .append("path")
+							    .attr("d", "M0,-5L10,0L0,5")//箭头的路径
+							    .attr('fill','#000000');//箭头颜色
+						      
+			    var g = svg.selectAll("g");
+				svg.call(d3.zoom()//放大缩小
+				   .scaleExtent([1 / 2, 8])
+				   .on("zoom", zoomed));
+				   
+//				var brush = svg.append("g")
+//    						.attr("class", "brush");
+//
+//				brush.call(d3.brush()
+//			         .extent([[0, 0], [width, height]])
+//			         .on("brush", brushed));
+
+			    //数据放入布局中
+			    simulation
+			      .nodes(graph.nodes)
+			      .on("tick", ticked);
+			
+			    simulation.force("link")//连线
+			      .links(graph.links)
+			      .distance(100);
+			    
+				svg.on("click",function(){//点击空白，去掉高亮，同时清除节点信息
+					$('.right ul li').remove();
+					$('.right button').css('display','none');
+					c = 0;
+					lines = [];
+					thisCircle = undefined;
+					thisLink = undefined;
+					svg.selectAll("line")
+			    	   .style("stroke","#999");
+		    	    svg.selectAll("circle")
+		    	       .style("fill","#e3e3e3")
+		    	       .attr("id","");
+				})	
+				function phyllotaxis(radius) {
+				  var theta = Math.PI * (3 - Math.sqrt(5));
+				  return function(i) {
+				    var r = radius * Math.sqrt(i), a = theta * i;
+				    return {
+				      x: width / 2 + r * Math.cos(a),
+				      y: height / 2 + r * Math.sin(a)
+				    };
+				  };
+				}
+			    function ticked() {//节点、连线和文本添加内部信息
+				    link
+				        .attr("x1", function(d) { return d.source.x; })
+				        .attr("y1", function(d) { return d.source.y; })
+				        .attr("x2", function(d) { return d.target.x; })
+				        .attr("y2", function(d) { return d.target.y; });
+				
+				    node
+				        .attr("cx", function(d) { return d.x; })
+				        .attr("cy", function(d) { return d.y; });
+				    text
+				        .attr("x", function(d) { return d.x; })
+				        .attr("y", function(d) { return d.y; });
+			    }
+			    function zoomed() {//放大缩小函数
+				  g.attr("transform", d3.event.transform);
+				}
+			
+				function dragstarted(d) {
+				    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+					    d.fx = d.x;
+					    d.fy = d.y;
+				}
+				
+				function dragged(d) {
+					d.fx = d3.event.x;
+					d.fy = d3.event.y;
+				}
+				
+//				function dragended(d) {
+//				    if (!d3.event.active) simulation.alphaTarget(0);
+//					    d.fx = null;
+//					    d.fy = null;
+//				}
+//		    	function brushed(){
+//		    		if (d3.event.sourceEvent.type !== "end") {
+//				        var selection = d3.event.selection;
+//				        node.classed("selected", function(d) {
+//				        	return d.selected = d.previouslySelected ^
+//				            (selection != null
+//				            && selection[0][0] <= d.x && d.x < selection[1][0]
+//				            && selection[0][1] <= d.y && d.y < selection[1][1]);
+//				      	});
+//				    }
+//		    	}
+			    function clickCircle(d){//点击节点高亮
+			    	if($('body').css('cursor') == 'crosshair'){
+						if(count == 0){
+							x1 = d.x;
+							y1 = d.y;
+							count++;
+						}else if(count == 1){
+							x2 = d.x;
+							y2 = d.y;
+				    		var line = svg.selectAll("line")._groups[0];
+					        for(var i=0;i<line.length;i++){
+					        	if((line[i].getAttribute("x1") == x1 || line[i].getAttribute("x2") == x1) && (line[i].getAttribute("x1") == x2 || line[i].getAttribute("x2") == x2 )){
+						        	return false;
+					        	}
+					        };
+					        console.log(x1,y1,x2,y2);
+				    		d3.select("g.links").append("line")
+								.attr('x1',x1)
+								.attr('y1',y1)
+								.attr('x2',x2)
+								.attr('y2',y2)
+								.attr("stroke-width", function(d) { return Math.sqrt(3); })
+								.attr("marker-end","url(#arrow)")
+							count = 0;
+						}
+						return false;
+					};
+					if(numb != 0 && keyvalue == 17 ){//按下ctrl选中第二个节点
+						$('.right .ul').append('<li><b>名称：</b><input class="information" readonly="readonly" value="'+ d.name + '" /><a class="edited" onclick="editClick(this)" href="javascript:0">修改</a></li>')
+//				    	svg.selectAll("circle")
+//				    	   .style("fill","e3e3e3")
+//				    	   .attr("id",'');
+				    	 var this_ = this;
+				    	 thisCircle = this;
+	                    lines = [];
+//				    	if(event_ != d && event_ != ""){
+//				    		svg.selectAll("line")
+//				    		   .style("stroke","#999");
+//				    	};
+				    	var circle_x = d.x;
+				    	var line = svg.selectAll("line")._groups[0];
+				        for(var i=0;i<line.length;i++){
+				        	if(line[i].getAttribute("x1") == circle_x || line[i].getAttribute("x2") == circle_x){
+					        	d3.select(line[i])
+					              .style("stroke","red")
+					            lines.push(line[i]);
+				        	}
+				        };
+				        d3.select(this_)
+					      .style("fill","red")
+					      .attr("id",1)
+				    	event_ = d;
+				    	numb = 0;
+						d3.event.stopPropagation();
+				    	return false;
+					}
+			    	$('.right ul li').remove();//清除内容
+					$('.right button').css('display','none');//清除原来的button
+			    	$('.right button').css('display','inline');//显示button
+			    	console.log(d);
+			    	$('.right .ul').append('<li><b>名称：</b><input class="information" readonly="readonly" value="'+ d.name + '" /><a class="edited" onclick="editClick(this)" href="javascript:0">修改</a></li>')
+			    	svg.selectAll("circle")//清掉原有的节点高亮
+			    	   .style("fill","#e3e3e3")
+			    	   .attr("id",'');
+			    	var this_ = this;
+			    	thisCircle = this;//赋予当前的节点，并在删除时复用
+                    lines = [];
+			    	if(event_ != d && event_ != ""){
+			    		svg.selectAll("line")
+			    		   .style("stroke","#999");
+			    	};
+			    	var circle_x = d.x;
+			    	var line = svg.selectAll("line")._groups[0];
+			        for(var i=0;i<line.length;i++){//高亮相应节点的连接线
+			        	if(line[i].getAttribute("x1") == circle_x || line[i].getAttribute("x2") == circle_x){
+				        	d3.select(line[i])
+				              .style("stroke","red")
+				            lines.push(line[i]);
+			        	}
+			        };
+			        d3.select(this_)//节点高亮
+				      .style("fill","red")
+				      .attr("id",1)
+			    	event_ = d;
+			    	numb++;
+					d3.event.stopPropagation();
+			    }
+			    $('body').keydown(function(event){
+			    	keyvalue = event.keyCode;
+			    })
+			    function linkClick(d){//点击连线高亮
+			    	thisLink = this;
+			    	console.log("linkClick");
+			    	$('.header span:eq(0) li:eq(2)').css('display','inline');
+			    	c = 1;
+			    	d3.event.stopPropagation();
+			    }
+//			    function textClick(d){
+//			    	svg.selectAll("text").attr("id","");
+//			        d3.select(this).attr("id","edit");
+//			    	if($('body').css('cursor') != 'help'){
+//			    		return false;
+//			    	}else{
+//						var this_id = $(this).attr('id');
+//						index_ = layer.tips('<div class="edit_"><div><span>编辑：</span><input type="text" /></div><div><button class="commit" onclick="commitClick()">确定</button><button class="cancel" onclick="cancelClick()">取消</button></div>', '#'+this_id,{
+//							time: 0,
+//							skin: "edit-style",
+//							shade: 0.3
+//						});
+//			    	}
+//			    }
+//			   function commitClick(){
+//			    	layer.close(index_);
+//			    }
+//			    function cancelClick(){
+//			    	layer.close(index_);
+//			    }
+//			    function dblclick(d) {
+//			    	clearTimeout(timeoutID);
+//			    	d3.select(this)
+//			    	  .attr("cx",preX)
+//			    	  .attr("cy",preY)
+//				    d3.event.stopPropagation();
+//				}
+		    
+				var event_,thisLink,x1,x2,y1,y2,weight,thisCircle,val,keyvalue;
+	            var lines = [];
+	//          var timeoutID = null;
+	//			var index_;
+	            var c = 0;
+	            var count = 0;
+	            var numb = 0
+	            var checkSubmit = false;
+	            
+	            
+	            //点击编辑后的工作
+	//          $('.edit').click(function(){
+	//          	$('body').css('cursor','help');
+	//          	$('.header span:eq(0) li:eq(2),.header span:eq(0) li:eq(5),.header span:eq(0) li:eq(6)').css('display','inline');
+	//          })
+	            $('.delete').click(function(){//删除功能
+	            	deleteClick()
+	            })
+	//          $('.unedit').click(function(){
+	//          	$('body').css('cursor','default');
+	////          	$('.header span:eq(0) li:eq(2),.header span:eq(0) li:eq(5),.header span:eq(0) li:eq(6)').css('display','none');
+	//          })
+	            $('.search').click(function(){//搜索功能
+	            	var tex = $('.search_tex').val();
+	            	var text = $('text');
+	            	var x,y;
+	            	for(var i=0;i<text.length;i++){
+	            		if(text[i].innerHTML == tex){
+	            			$()
+	            		}
+	            	}
+	            })
+	            $('.addLink').click(function(){//添加连线
+	            	$('body,circle').css('cursor','crosshair');
+	            })
+	            $('.addNode').click(function(){//添加节点信息
+	            	layer.open({
+					  	type: 1,
+					  	title: ['输入节点信息','background:f4f5f7;font-size:1.2em;color:#5f71ad;height:48px;line-height:48px;'],
+					  	skin: 'add-style', //加上边框
+					  	area: ['550px', '190px'], //宽高
+					 	btn: ['确定','取消'],
+					 	closeBtn: 0,
+					  	content: '<div class="add"><span><p>姓名：</p><input type="text" /></span></div>',
+					  	yes: function(index,layero){
+					  		removeSip(exten);
+							vm.getExtensionData(k,pagenum);
+							this_.extensionData = true;
+							this_.robotData = false;
+							$('#checkAll')[0].checked = false;
+					  		layer.close(index);
+					  	}
+					});
+	            })
+	            $('.right button').click(function(){//点击修改后的操作
+	            	$('.information').attr('readonly','readonly');
+	            	$('.information').css('background','#E1E4EB');
+	            })
+	            $('.bottom input').bind('keydown',function(event){//底部栏输入
+	            	if(event.keyCode == "13"){  
+				   		if($('.bottom input').val() == ""){
+				   			return false;
+				   		}else{
+				   			if($('.bottom input').val() == val){
+				   				setTimeout(function() {   
+						            checkSubmit = false;
+						            val = "";
+						        }, 3000); 
+				   			}else{
+				   				if(checkSubmit == false){
+				   					var myDate = new Date();
+				   					var h = myDate.getHours();       //获取当前小时数(0-23)
+									var m = myDate.getMinutes();     //获取当前分钟数(0-59)
+									var s = myDate.getSeconds(); 
+					   				$('.bottom div ul').append('<li class="li">('+p(h)+":"+p(m)+":"+p(s)+")"+'>>'+$('.bottom input').val()+'</li>');
+					   			}
+				   				checkSubmit = true;  
+				   			}
+				   			val = $('.bottom input').val();
+				   		}
+				  	}  
+	            })
+	            function p(s) {
+				    return s < 10 ? '0' + s: s;
+				}
+	            function deleteClick(d){//删除
+	            	if(thisCircle == undefined && thisLink == undefined){
+	            		layer.confirm('你还没有选中任何节点或者连接线！', {
+						    btn: ['知道了'] //按钮
+						    ,title: false
+				    		,closeBtn: 0
+						}, function(index,layero){
+						   layer.close(index);
+						});
+	            	}
+		    		if(thisCircle != undefined){
+		    			layer.confirm('你确定要删除这个节点吗！', {
+						    btn: ['确定','取消'] //按钮
+						    ,title: false
+				    		,closeBtn: 0
+						},function(index,layero){
+						    layer.close(index);
+						},function(index,layero){
+							layer.close(index);
+						});
+		    		}else if(thisLink != undefined){
+		    			layer.confirm('你确定要删除这条连接线吗！', {
+						    btn: ['确定','取消'] //按钮
+						    ,title: false
+				    		,closeBtn: 0
+						},function(index,layero){
+						    layer.close(index);
+						},function(index,layero){
+							layer.close(index);
+						});
+		    		}
+	//	    		console.log(d);
+	           };
+			},500)
+			
+				
+			
+            function editClick(a){
+            	var cur = a.parentElement.childNodes[1];
+            	$(cur).removeAttr('readonly');
+            	$(cur).css('background','#FFFFFF');
+            };    	
+				
+			
+				
+            //svg自适应函数 
+			function adjustToFreezeHeight(rootSvg) {  
+			  	var windowWidth = $(window).width(); 
+			    var windowHeight = $(window).height();
+		        var width =  $('.right').css('width');
+		        width = parseInt(width);
+			    var viewBoxVal = rootSvg.getAttribute("viewBox");  
+			    var viewBoxWidth = viewBoxVal.split(",")[2];  
+			    var viewBoxHeight = viewBoxVal.split(",")[3];  
+			    rootSvg.removeAttribute("width");  
+			    rootSvg.removeAttribute("height");  
+			  
+			    var setHeight = windowHeight - 80;  
+			    var setWidth = windowWidth - width - 5;    
+			    rootSvg.setAttribute("width", setWidth);  
+			    rootSvg.setAttribute("height", setHeight);  
+			}   
+		</script>
+	</body>
+</html>

@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+		<script type="text/javascript" src="/static/js/d3.v3.min.js"></script>
+    <style type="text/css">
+		.node circle {
+		  cursor: pointer;
+		  fill: #fff;
+		  stroke: steelblue;
+		  stroke-width: 1.5px;
+		}
+		
+		.node text {
+		  font-size: 11px;
+		}
+		
+		path.link {
+		  fill: none;
+		  stroke: #ccc;
+		  stroke-width: 1.5px;
+		}
+		rect {
+		  fill: none;
+		  pointer-events: all;
+		}
+		
+		pre {
+		  font-size: 18px;
+		}
+		
+		line {
+		  stroke: #000;
+		  stroke-width: 1.5px;
+		}
+		
+		.string, .regexp {
+		  color: #f39;
+		}
+		
+		.keyword {
+		  color: #00c;
+		}
+		
+		.comment {
+		  color: #777;
+		  font-style: oblique;
+		}
+		
+		.number {
+		  color: #369;
+		}
+		
+		.class, .special {
+		  color: #1181B8;
+		}
+		
+		a:link, a:visited {
+		  color: #000;
+		  text-decoration: none;
+		}
+		
+		a:hover {
+		  color: #666;
+		}
+
+    </style>
+  </head>
+  <body>
+    <div id="body">
+      <!--<div id="footer">
+        d3.layout.tree
+        <div class="hint">click or option-click to expand or collapse</div>
+      </div>-->
+    </div>
+    <script type="text/javascript">
+
+			var width = 2500,  
+					height = 2500;  
+			  
+			var tree = d3.layout.tree()  
+			    .size([width, height-200])  
+			    .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2); });  
+			  
+			var diagonal = d3.svg.diagonal()  
+			    .projection(function(d) { return [d.y, d.x]; });  
+			  
+			var svg = d3.select("body").append("svg")  
+			    .attr("width", width)  
+			    .attr("height", height)  
+			    .append("g")  
+			    .attr("transform", "translate(40,0)");  
+			  
+			  
+			  
+			d3.json("/10000view", function(error, root) {  
+			  
+			    var nodes = tree.nodes(root);  
+			    var links = tree.links(nodes);  
+			      
+			    console.log(nodes);  
+			    console.log(links);  
+			      
+			    var link = svg.selectAll(".link")  
+			      .data(links)  
+			      .enter()  
+			      .append("path")  
+			      .attr("class", "link")  
+			      .attr("d", diagonal);  
+			      
+			    var node = svg.selectAll(".node")  
+			      .data(nodes)  
+			      .enter()  
+			      .append("g")  
+			      .attr("class", "node")  
+			      .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })  
+			      
+			    node.append("circle")  
+			      .attr("r", 4.5);  
+			      
+			    node.append("text")  
+			      .attr("dx", function(d) { return d.children ? -8 : 8; })  
+			      .attr("dy", 3)  
+			      .style("text-anchor", function(d) { return d.children ? "end" : "start"; })  
+			      .text(function(d) { return d.nodedesc; });  
+			    });  
+			  
+
+    </script>
+  </body>
+</html>
